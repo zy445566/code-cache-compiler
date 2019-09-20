@@ -1,0 +1,39 @@
+{
+  "name": "code-cache-compiler",
+  "version": "1.0.0",
+  "description": "node.js code cache compiler",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "code-cache-compiler": "bin/code-cache-compiler.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zy445566/code-cache-compiler.git"
+  },
+  "engines": {
+    "node": ">=10.10"
+  },
+  "keywords": [
+    "code",
+    "cache",
+    "compiler",
+    "compile"
+  ],
+  "dependencies": {
+    "@babel/core": "^7.5.5",
+    "@babel/plugin-transform-runtime": "^7.5.5",
+    "@babel/preset-env": "^7.5.5",
+    "babel-loader": "^8.0.6",
+    "commander": "^3.0.1",
+    "webpack": "^4.37.0"
+  },
+  "author": "zy445566",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/zy445566/code-cache-compiler/issues"
+  },
+  "homepage": "https://github.com/zy445566/code-cache-compiler#readme"
+}
