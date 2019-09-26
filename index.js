@@ -1,47 +1,41 @@
-const vm = require('vm');
-const webpack = require('webpack');
-const MemoryFS = require("memory-fs");
-const fs = require("fs");
-const mfs = new MemoryFS();
-const path = require('path');
-const webpackConfig = require('./webpack.config.js');
 
+const fs = require('fs')
 
 
 class CodeCacheCompiler {
-    compile(srcPath, distPath) {
-        if(!distPath) {distPath = `${path.basename(srcPath,'.js')}.bc`}
-        webpackConfig.entry = path.join(process.cwd(),srcPath);
-        webpackConfig.output.path = process.cwd();
-        webpackConfig.output.filename = distPath;
-        const compiler = webpack(webpackConfig);
-        compiler.outputFileSystem = mfs;
-        compiler.run((err, stats)=>{
-            process.stdout.write(stats.toString({
-            errors: true,
-            warnings: true,
-            modules: false,
-            chunks: false,
-            colors: true
-            }));
-            process.stdout.write(`\nCompile...\n`)
-            const content = mfs.readFileSync(path.join(process.cwd(),distPath));
-            let scriptObj = new vm.Script(content,{produceCachedData: true});
-            console.log(content.toString().length)
-            let cacheBuf = scriptObj.cachedData;
-            process.stdout.write(`outPut...\n`)
-            let outPutPath = path.join(process.cwd(),distPath);
-            fs.writeFileSync(path.join(process.cwd(),distPath),cacheBuf);
-            process.stdout.write(`Success Complete\n`)
-            process.stdout.write(`outPutPath:${outPutPath}\n`)
-        })
+    compile(srcPath, distPathBasename) {
+        let srcPath = path.join(process.cwd(),srcPath);
+        let srcPathBasename = path.basename(srcPath);
+        if(!distPathBasename) {
+            distPathBasename = `${path.basename(srcPath,'.js')}.bc`
+        }
+        let distPath = path.join(process.cwd(),distPathBasename);
+        let res = await require('@zeit/ncc')(srcPath, {
+            filterAssetBase: process.cwd(),
+            minify: false, 
+            sourceMapRegister: true, 
+            watch: false, 
+            v8cache: true, 
+            quiet: false, 
+            debugLog: false 
+          });
+        let { code, map, assets } = res;
+        let cacheName = `${srcPathBasename}.cache`;
+        let cacheNameJs = `${cacheName}.js`;
+        let outputJson = {
+            'cacheBuf':assets[cacheName].source.toJSON(),
+            sourceLength:assets[cacheNameJs].source.length
+        }
+        fs.writeFileSync(distPath,JSON.stringify(outputJson));
     }
     run (distPath) {
-        let codeBuffer = Buffer.alloc(3687);// 这里的长度要和原代码长度保持一致来欺骗使用cachedData
-        const scriptObj = new vm.Script(codeBuffer,{cachedData:fs.readFileSync(path.join(process.cwd(),distPath))})
-        const sandbox={require,console};
-        const context = vm.createContext(sandbox);
-        scriptObj.runInContext(context);
+        let ccDataJson = fs.readFileSync(path.join(process.cwd(),distPath));
+        let ccData = JSON.parse(ccDataJson);
+        let cacheBuf = Buffer.from(ccData.cacheBuf);
+        const { Script } = require('vm'), { wrap } = require('module');
+        const cachedData = !process.pkg && require('process').platform !== 'win32' && cacheBuf;
+        const script = new Script(wrap(Array(ccData.sourceLength).fill(' ').join('')), cachedData ? { cachedData } : {});
+        (script.runInThisContext())(exports, require, module, __filename, __dirname);
     }
 }
 module.exports = new CodeCacheCompiler()

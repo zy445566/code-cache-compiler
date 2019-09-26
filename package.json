@@ -23,12 +23,7 @@
     "compile"
   ],
   "dependencies": {
-    "@babel/core": "^7.5.5",
-    "@babel/plugin-transform-runtime": "^7.5.5",
-    "@babel/preset-env": "^7.5.5",
-    "babel-loader": "^8.0.6",
-    "commander": "^3.0.1",
-    "webpack": "^4.37.0"
+    "@zeit/ncc": "^0.20.5"
   },
   "author": "zy445566",
   "license": "MIT",
