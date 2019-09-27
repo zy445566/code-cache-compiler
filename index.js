@@ -1,16 +1,21 @@
 
 const fs = require('fs')
+const path = require('path')
+const ncc = require('@zeit/ncc');
 
 
 class CodeCacheCompiler {
-    compile(srcPath, distPathBasename) {
-        let srcPath = path.join(process.cwd(),srcPath);
-        let srcPathBasename = path.basename(srcPath);
-        if(!distPathBasename) {
-            distPathBasename = `${path.basename(srcPath,'.js')}.bc`
+    async compile(srcPath, distPath) {
+        if(!path.isAbsolute(srcPath)) {
+            srcPath = path.join(process.cwd(),srcPath);
         }
-        let distPath = path.join(process.cwd(),distPathBasename);
-        let res = await require('@zeit/ncc')(srcPath, {
+        if (!distPath) {
+            distPath = `${srcPath}.bc`
+        }
+        if(!path.isAbsolute(distPath)) {
+            distPath = path.join(process.cwd(),distPath);
+        }
+        let res = await ncc(srcPath, {
             filterAssetBase: process.cwd(),
             minify: false, 
             sourceMapRegister: true, 
@@ -20,21 +25,25 @@ class CodeCacheCompiler {
             debugLog: false 
           });
         let { code, map, assets } = res;
-        let cacheName = `${srcPathBasename}.cache`;
-        let cacheNameJs = `${cacheName}.js`;
+        let cacheName = `index.js.cache`;
+        let cacheNameJs = `index.js.cache.js`;
         let outputJson = {
             'cacheBuf':assets[cacheName].source.toJSON(),
-            sourceLength:assets[cacheNameJs].source.length
+            sourceLength:assets[cacheNameJs].source.length,
+            source:assets[cacheNameJs].source
         }
         fs.writeFileSync(distPath,JSON.stringify(outputJson));
     }
     run (distPath) {
-        let ccDataJson = fs.readFileSync(path.join(process.cwd(),distPath));
+        if(!path.isAbsolute(distPath)) {
+            distPath = path.join(process.cwd(),distPath);
+        }
+        let ccDataJson = fs.readFileSync(distPath);
         let ccData = JSON.parse(ccDataJson);
         let cacheBuf = Buffer.from(ccData.cacheBuf);
         const { Script } = require('vm'), { wrap } = require('module');
         const cachedData = !process.pkg && require('process').platform !== 'win32' && cacheBuf;
-        const script = new Script(wrap(Array(ccData.sourceLength).fill(' ').join('')), cachedData ? { cachedData } : {});
+        const script = new Script(wrap(ccData.source), cachedData ? { cachedData } : {});
         (script.runInThisContext())(exports, require, module, __filename, __dirname);
     }
 }
